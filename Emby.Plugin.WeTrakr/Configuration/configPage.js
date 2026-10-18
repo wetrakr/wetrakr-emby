@@ -40,6 +40,7 @@ define(['loading', 'emby-input', 'emby-button', 'emby-checkbox'], function (load
                     lines.push('<div class="wt-muted">Not linked</div>');
                 }
                 if (u.LastSyncAt) lines.push('<div class="wt-muted">Last sync: ' + esc(when(u.LastSyncAt)) + (u.LastSyncResult ? ' · ' + esc(u.LastSyncResult) : '') + '</div>');
+                if (u.Linked && !u.Invalid && u.NextCheckAt) lines.push('<div class="wt-muted">Next check for changes: ' + esc(when(u.NextCheckAt)) + '</div>');
                 if (u.LastScrobbleAt) lines.push('<div class="wt-muted">Last scrobble: ' + esc(when(u.LastScrobbleAt)) + '</div>');
                 if (u.PendingCode) {
                     lines.push('<div>Go to <a href="' + esc(u.PendingUrl) + '" target="_blank" rel="noopener">' + esc(u.PendingUrl) + '</a> and enter:</div>' +

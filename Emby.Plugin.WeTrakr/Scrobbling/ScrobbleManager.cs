@@ -112,6 +112,8 @@ namespace Emby.Plugin.WeTrakr.Scrobbling
                         {
                             LiveSentRegistry.MarkPlayed(userId, itemId);
                             _played.Commit(userId, itemId, true);
+                            // Un episodio visto cambia el "siguiente sin ver" de la playlist.
+                            SyncSignals.MarkDirty(userId);
                         }
                     });
                 }
@@ -135,11 +137,13 @@ namespace Emby.Plugin.WeTrakr.Scrobbling
                 // Import = escrituras del propio sync (y de otros plugins): nunca
                 // se reenvian, o el sync se devolveria a si mismo en bucle. La
                 // reproduccion ya la cubren los eventos de playback.
+                // Con el scrobble de ese tipo apagado, el cambio llega a WeTrakr por
+                // el sync: se avisa al planificador para que suba el diff.
                 switch (e.SaveReason)
                 {
                     case UserDataSaveReason.TogglePlayed:
-                        if (!cfg.ScrobbleWatched) return;
                         var userId = PluginConfiguration.NormalizeId(e.User.Id.ToString("N"));
+                        if (!cfg.ScrobbleWatched) { SyncSignals.MarkDirty(userId); return; }
                         var itemId = e.Item.InternalId;
                         var played = e.UserData != null && e.UserData.Played;
                         if (!_played.ShouldSend(userId, itemId, played)) return;
@@ -151,11 +155,13 @@ namespace Emby.Plugin.WeTrakr.Scrobbling
                         {
                             _played.Commit(userId, itemId, played);
                             if (played) LiveSentRegistry.MarkPlayed(userId, itemId);
+                            // Marcar visto o no visto cambia el "siguiente sin ver" de la playlist.
+                            SyncSignals.MarkDirty(userId);
                         });
                         break;
 
                     case UserDataSaveReason.UpdateUserRating:
-                        if (!cfg.ScrobbleRatings) return;
+                        if (!cfg.ScrobbleRatings) { SyncSignals.MarkDirty(PluginConfiguration.NormalizeId(e.User.Id.ToString("N"))); return; }
                         var rated = PayloadBuilder.Build("UserDataSaved", e.User, e.Item, 0, false, e.UserData != null && e.UserData.Played);
                         rated.IsFavorite = e.UserData?.IsFavorite ?? false;
                         rated.UserRating = e.UserData?.Rating;
@@ -194,7 +200,12 @@ namespace Emby.Plugin.WeTrakr.Scrobbling
                     }
                     catch (Exception ex)
                     {
-                        if (attempt == 1) _logger.Warn("WeTrakr: {0} could not be sent: {1}", payload.Event, ex.Message);
+                        if (attempt == 1)
+                        {
+                            _logger.Warn("WeTrakr: {0} could not be sent: {1}", payload.Event, ex.Message);
+                            // Lo que no llego en vivo lo recoge la subida del sync.
+                            SyncSignals.MarkDirty(payload.UserId);
+                        }
                         else await Task.Delay(2000).ConfigureAwait(false);
                     }
                 }

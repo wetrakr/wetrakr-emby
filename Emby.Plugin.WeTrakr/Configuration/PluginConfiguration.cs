@@ -30,8 +30,13 @@ namespace Emby.Plugin.WeTrakr.Configuration
 
         public string WatchlistPlaylistName { get; set; } = "WeTrakr Watchlist";
 
-        /// <summary>Cada cuanto corre la tarea de sync (minutos).</summary>
-        public int SyncIntervalMinutes { get; set; } = 15;
+        /// <summary>
+        /// Tope del intervalo entre comprobaciones de cambios en WeTrakr cuando no
+        /// pasa nada (horas). El plugin empieza en 30 min y dobla el intervalo con
+        /// cada comprobacion vacia hasta aqui; vuelve a 30 min en cuanto hay
+        /// cambios o alguien usa Emby. Ver Sync/SyncScheduler.
+        /// </summary>
+        public int MaxCheckIntervalHours { get; set; } = 6;
 
         public UserLink FindLink(string embyUserId)
         {

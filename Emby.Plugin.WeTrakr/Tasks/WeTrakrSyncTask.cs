@@ -13,8 +13,10 @@ using MediaBrowser.Model.Tasks;
 namespace Emby.Plugin.WeTrakr.Tasks
 {
     /// <summary>
-    /// Sync periodico de la biblioteca con WeTrakr (las dos direcciones). Se puede
-    /// lanzar a mano desde Tareas programadas o desde la pagina del plugin.
+    /// Pasada COMPLETA de sync con WeTrakr (las dos direcciones, sin atajos): la
+    /// reconciliacion diaria, en hora tranquila. El dia a dia lo lleva
+    /// SyncScheduler con comprobaciones baratas; esto es la red de seguridad.
+    /// Se puede lanzar a mano desde Tareas programadas o desde la pagina del plugin.
     /// </summary>
     public class WeTrakrSyncTask : IScheduledTask
     {
@@ -30,7 +32,7 @@ namespace Emby.Plugin.WeTrakr.Tasks
 
         public string Key => "WeTrakrSync";
 
-        public string Description => "Sends your watched history, progress, ratings and favorites to WeTrakr and brings back what you watched elsewhere.";
+        public string Description => "Full daily reconciliation with WeTrakr: watched history, progress, ratings, favorites and the Planning playlist, both ways. Changes during the day are synced as they happen.";
 
         public string Category => "WeTrakr";
 
@@ -41,11 +43,13 @@ namespace Emby.Plugin.WeTrakr.Tasks
 
         public IEnumerable<TaskTriggerInfo> GetDefaultTriggers()
         {
-            var minutes = Math.Max(5, Plugin.Instance?.Configuration?.SyncIntervalMinutes ?? 15);
+            // Entre las 03:00 y las 05:00 locales, con minuto aleatorio por servidor
+            // para que no pregunten todos a la vez. Emby guarda el disparador la
+            // primera vez, asi que el minuto se queda fijo para ese servidor.
+            var minute = new Random().Next(0, 120);
             return new[]
             {
-                new TaskTriggerInfo { Type = TaskTriggerInfo.TriggerInterval, IntervalTicks = TimeSpan.FromMinutes(minutes).Ticks },
-                new TaskTriggerInfo { Type = TaskTriggerInfo.TriggerStartup }
+                new TaskTriggerInfo { Type = TaskTriggerInfo.TriggerDaily, TimeOfDayTicks = TimeSpan.FromHours(3).Add(TimeSpan.FromMinutes(minute)).Ticks }
             };
         }
     }

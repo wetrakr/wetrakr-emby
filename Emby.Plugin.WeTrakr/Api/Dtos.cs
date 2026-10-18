@@ -192,6 +192,12 @@ namespace Emby.Plugin.WeTrakr.Api
         [JsonPropertyName("batch")] public int Batch { get; set; }
         [JsonPropertyName("accepted")] public int Accepted { get; set; }
         [JsonPropertyName("rejected")] public int Rejected { get; set; }
+
+        /// <summary>Solo cuando la API esperó a procesar el lote (200): estado del
+        /// job y lotes hechos. Con 202 vienen vacíos y hay que sondear.</summary>
+        [JsonPropertyName("status")] public string Status { get; set; }
+        [JsonPropertyName("batches_done")] public int BatchesDone { get; set; }
+        [JsonPropertyName("error")] public string Error { get; set; }
     }
 
     public class ImportSection
@@ -272,8 +278,18 @@ namespace Emby.Plugin.WeTrakr.Api
         [JsonPropertyName("since")] public DateTime Since { get; set; }
         [JsonPropertyName("next_since")] public DateTime NextSince { get; set; }
         [JsonPropertyName("has_more")] public bool HasMore { get; set; }
+
+        /// <summary>Nada cambió desde `since`: titles e in_progress vienen vacíos y
+        /// NO significan "ya no hay nada en curso". Solo se avanza el cursor.</summary>
+        [JsonPropertyName("unchanged")] public bool Unchanged { get; set; }
+
         [JsonPropertyName("titles")] public List<TitleRow> Titles { get; set; } = new List<TitleRow>();
         [JsonPropertyName("in_progress")] public List<InProgressRow> InProgress { get; set; } = new List<InProgressRow>();
+
+        /// <summary>Ajustes de sync de la cuenta, en cada respuesta: así el plugin
+        /// no llama a /status en cada pasada.</summary>
+        [JsonPropertyName("settings")] public StatusSettings Settings { get; set; }
+        [JsonPropertyName("max_batch")] public int? MaxBatch { get; set; }
     }
 
     public class ApiError

@@ -115,9 +115,14 @@ namespace Emby.Plugin.WeTrakr.Api
             return Send<SnapshotPage>(HttpMethod.Get, path, null, ctx, ct);
         }
 
-        public static Task<ChangesPage> GetChanges(SyncContext ctx, DateTime since, CancellationToken ct)
+        /// <summary>
+        /// Cambios desde `since`. Sin `full`, la API responde `unchanged` tras una
+        /// comprobación barata cuando no hay nada: es la llamada con la que se
+        /// sondea. Con `full` lee siempre (pasada completa).
+        /// </summary>
+        public static Task<ChangesPage> GetChanges(SyncContext ctx, DateTime since, bool full, CancellationToken ct)
         {
-            var path = "/integrations/emby/changes?since=" + Uri.EscapeDataString(since.ToUniversalTime().ToString("o"));
+            var path = "/integrations/emby/changes?since=" + Uri.EscapeDataString(since.ToUniversalTime().ToString("o")) + (full ? "&full=1" : string.Empty);
             return Send<ChangesPage>(HttpMethod.Get, path, null, ctx, ct);
         }
 

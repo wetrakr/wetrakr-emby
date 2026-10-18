@@ -32,9 +32,18 @@ namespace Emby.Plugin.WeTrakr.Sync
     ///
     /// La subida va antes que la bajada: si no, un cambio hecho en Emby desde la
     /// ultima pasada se veria pisado por el estado viejo de WeTrakr.
+    ///
+    /// Tres modos, para gastar las menos peticiones posibles (ver SyncScheduler):
+    ///   Check  una sola llamada a /changes; si WeTrakr dice `unchanged`, aqui
+    ///          acaba. Es lo que corre el sondeo.
+    ///   Local  cambio algo en Emby (lo avisan los eventos): sube el diff y
+    ///          refresca la playlist. Cero peticiones si el diff esta vacio.
+    ///   Full   todo, sin atajos: primer sync, "Sync now" y la pasada diaria.
     /// </summary>
     public class SyncEngine
     {
+        public enum Mode { Check, Local, Full }
+
         private static readonly SemaphoreSlim RunLock = new SemaphoreSlim(1, 1);
         private static readonly string[] SnapshotSections = { "tracks", "ratings", "favorites" };
 
@@ -63,15 +72,21 @@ namespace Emby.Plugin.WeTrakr.Sync
             public int Uploaded { get; set; }
             public int Applied { get; set; }
             public int Progress { get; set; }
+            public bool Unchanged { get; set; }
             public string Error { get; set; }
+
+            /// <summary>Hubo algo que subir o que aplicar (para el backoff del sondeo).</summary>
+            public bool Changed => Uploaded > 0 || Applied > 0 || Progress > 0;
 
             public override string ToString()
             {
-                return Error ?? string.Format("{0} sent to WeTrakr, {1} updated in Emby, {2} resume points", Uploaded, Applied, Progress);
+                if (Error != null) return Error;
+                if (Unchanged && Uploaded == 0) return "nothing changed";
+                return string.Format("{0} sent to WeTrakr, {1} updated in Emby, {2} resume points", Uploaded, Applied, Progress);
             }
         }
 
-        /// <summary>Sync de todas las cuentas enlazadas.</summary>
+        /// <summary>Pasada completa de todas las cuentas enlazadas (tarea programada, "Sync now").</summary>
         public async Task RunAll(IProgress<double> progress, CancellationToken ct)
         {
             var cfg = Plugin.Instance.Configuration;
@@ -87,7 +102,7 @@ namespace Emby.Plugin.WeTrakr.Sync
                 for (var i = 0; i < links.Count; i++)
                 {
                     ct.ThrowIfCancellationRequested();
-                    await RunOne(links[i], ct).ConfigureAwait(false);
+                    await RunOne(links[i], Mode.Full, ct).ConfigureAwait(false);
                     progress?.Report(100.0 * (i + 1) / links.Count);
                 }
                 Plugin.Instance.SaveConfiguration();
@@ -98,13 +113,34 @@ namespace Emby.Plugin.WeTrakr.Sync
             }
         }
 
-        private async Task RunOne(UserLink link, CancellationToken ct)
+        /// <summary>
+        /// Una cuenta, en el modo pedido. Devuelve null si ya habia un sync en
+        /// marcha (no espera: el sondeo volvera a pasar).
+        /// </summary>
+        public async Task<Result> Run(UserLink link, Mode mode, CancellationToken ct)
         {
+            if (!Plugin.Instance.Configuration.SyncEnabled) return null;
+            if (!await RunLock.WaitAsync(0, ct).ConfigureAwait(false)) return null;
+            try
+            {
+                var result = await RunOne(link, mode, ct).ConfigureAwait(false);
+                Plugin.Instance.SaveConfiguration();
+                return result;
+            }
+            finally
+            {
+                RunLock.Release();
+            }
+        }
+
+        private async Task<Result> RunOne(UserLink link, Mode mode, CancellationToken ct)
+        {
+            var result = new Result();
             var user = _users.GetUserById(link.EmbyUserId);
             if (user == null)
             {
-                link.LastSyncResult = "Emby user not found";
-                return;
+                result.Error = link.LastSyncResult = "Emby user not found";
+                return result;
             }
 
             var ctx = SyncContext.From(link);
@@ -116,39 +152,66 @@ namespace Emby.Plugin.WeTrakr.Sync
             }
             catch { /* informativo */ }
 
-            var result = new Result();
             try
             {
-                var status = await WeTrakrApi.GetStatus(ctx, ct).ConfigureAwait(false);
-                var sync = status?.Settings?.Sync ?? new SyncSettings();
                 var state = SyncStateStore.Load(link.EmbyUserId);
 
-                result.Uploaded = await Upload(ctx, user, state, Math.Max(1, Math.Min(status?.MaxBatch ?? 1000, 1000)), ct).ConfigureAwait(false);
-                SyncStateStore.Save(link.EmbyUserId, state);
-
-                var index = LibraryIndex.Build(_library, user);
-                var pull = await Pull(ctx, user, state, index, sync, ct).ConfigureAwait(false);
-                result.Applied = pull.Applied;
-                result.Progress = ApplyProgress(user, state, index, sync, pull.InProgress);
-
-                if (Plugin.Instance.Configuration.WatchlistPlaylist && sync.PushPlanning)
+                // Los ajustes llegan en cada /changes; /status solo hace falta la
+                // primera vez, antes del snapshot (y de la primera subida).
+                if (state.Settings == null)
                 {
+                    var status = await WeTrakrApi.GetStatus(ctx, ct).ConfigureAwait(false);
+                    RememberSettings(state, status?.Settings, status?.MaxBatch);
+                }
+
+                // Subida: siempre en Full y Local (cero peticiones si el diff esta
+                // vacio); en Check solo la primera vez, que es la que mas pesa y
+                // debe ir antes de que el snapshot pise el estado local.
+                if (mode != Mode.Check || !state.InitialDone)
+                {
+                    result.Uploaded = await Upload(ctx, user, state, Math.Max(1, Math.Min(state.MaxBatch, 1000)), ct).ConfigureAwait(false);
+                    SyncStateStore.Save(link.EmbyUserId, state);
+                }
+
+                LibraryIndex index = null;
+                var sync = state.Settings ?? new SyncSettings();
+
+                if (mode != Mode.Local)
+                {
+                    index = LibraryIndex.Build(_library, user);
+                    var pull = await Pull(ctx, user, state, index, mode == Mode.Full, ct).ConfigureAwait(false);
+                    sync = state.Settings ?? sync;
+                    result.Unchanged = pull.Unchanged;
+                    result.Applied = pull.Applied;
+                    // Con `unchanged` la lista de en curso viene vacia y no significa
+                    // "ya no hay nada": no se tocan los puntos de reanudacion.
+                    if (!pull.Unchanged) result.Progress = ApplyProgress(user, state, index, sync, pull.InProgress);
+                }
+
+                // Playlist: cuando pudo cambiar Planning (bajada con cambios) o lo
+                // visto en Emby (modo Local: el siguiente episodio sin ver cambia).
+                var playlistDue = mode == Mode.Full || mode == Mode.Local || result.Applied > 0;
+                if (playlistDue && Plugin.Instance.Configuration.WatchlistPlaylist && sync.PushPlanning)
+                {
+                    if (index == null) index = LibraryIndex.Build(_library, user);
                     await SyncPlaylist(user, state, index, ct).ConfigureAwait(false);
                 }
+
                 SyncStateStore.Save(link.EmbyUserId, state);
                 link.LastSyncAt = DateTime.UtcNow;
                 link.LastSyncResult = result.ToString();
-                _logger.Info("WeTrakr sync for {0}: {1}", user.Name, result);
+                if (mode == Mode.Full || result.Changed) _logger.Info("WeTrakr sync for {0} ({1}): {2}", user.Name, mode, result);
+                else _logger.Debug("WeTrakr sync for {0} ({1}): {2}", user.Name, mode, result);
             }
             catch (InvalidTokenException)
             {
                 link.Invalid = true;
-                link.LastSyncResult = "WeTrakr rejected the link. Link the account again.";
+                result.Error = link.LastSyncResult = "WeTrakr rejected the link. Link the account again.";
                 _logger.Warn("WeTrakr: token for {0} is no longer valid", user.Name);
             }
             catch (ApiException ex) when (ex.Error == "account_excluded")
             {
-                link.LastSyncResult = "This Emby account is disabled in WeTrakr (Settings > Emby).";
+                result.Error = link.LastSyncResult = "This Emby account is disabled in WeTrakr (Settings > Emby).";
             }
             catch (OperationCanceledException)
             {
@@ -156,9 +219,17 @@ namespace Emby.Plugin.WeTrakr.Sync
             }
             catch (Exception ex)
             {
-                link.LastSyncResult = "Sync failed: " + ex.Message;
+                result.Error = link.LastSyncResult = "Sync failed: " + ex.Message;
                 _logger.ErrorException("WeTrakr sync for {0} failed", ex, user.Name);
             }
+            return result;
+        }
+
+        private static void RememberSettings(UserSyncState state, StatusSettings settings, int? maxBatch)
+        {
+            if (settings?.Sync != null) state.Settings = settings.Sync;
+            else if (state.Settings == null) state.Settings = new SyncSettings();
+            if (maxBatch != null && maxBatch > 0) state.MaxBatch = maxBatch.Value;
         }
 
         // =============================================================
@@ -374,6 +445,11 @@ namespace Emby.Plugin.WeTrakr.Sync
         /// <summary>Espera a que la API termine el lote antes de mandar el siguiente.</summary>
         private static async Task WaitForBatch(SyncContext ctx, ImportAccepted accepted, CancellationToken ct)
         {
+            // La API espera unos segundos antes de responder: lo normal es que el
+            // lote ya venga hecho y no haya que sondear.
+            if (accepted.Status == "failed" || accepted.Status == "canceled") throw new Exception("WeTrakr import failed: " + (accepted.Error ?? accepted.Status));
+            if (accepted.BatchesDone >= accepted.Batch) return;
+
             var deadline = DateTime.UtcNow.AddMinutes(15);
             var delay = 1000;
             while (DateTime.UtcNow < deadline)
@@ -395,12 +471,14 @@ namespace Emby.Plugin.WeTrakr.Sync
         private class PullResult
         {
             public int Applied { get; set; }
+            public bool Unchanged { get; set; }
             public List<InProgressRow> InProgress { get; set; }
         }
 
-        private async Task<PullResult> Pull(SyncContext ctx, User user, UserSyncState state, LibraryIndex index, SyncSettings sync, CancellationToken ct)
+        private async Task<PullResult> Pull(SyncContext ctx, User user, UserSyncState state, LibraryIndex index, bool full, CancellationToken ct)
         {
             var res = new PullResult();
+            var sync = state.Settings ?? new SyncSettings();
 
             if (!state.SnapshotDone || state.CursorSince == null)
             {
@@ -429,6 +507,9 @@ namespace Emby.Plugin.WeTrakr.Sync
                 state.Planning = planning;
                 state.CursorSince = cursorSince ?? DateTime.UtcNow;
                 state.SnapshotDone = true;
+                // Tras un snapshot el diario se lee entero: lo que cambio mientras
+                // tanto debe llegar, y la lista de en curso aun no se ha aplicado.
+                full = true;
             }
 
             ChangesPage changes;
@@ -438,14 +519,23 @@ namespace Emby.Plugin.WeTrakr.Sync
                 ct.ThrowIfCancellationRequested();
                 try
                 {
-                    changes = await WeTrakrApi.GetChanges(ctx, state.CursorSince.Value, ct).ConfigureAwait(false);
+                    changes = await WeTrakrApi.GetChanges(ctx, state.CursorSince.Value, full, ct).ConfigureAwait(false);
                 }
                 catch (ApiException ex) when (ex.Error == "SNAPSHOT_REQUIRED")
                 {
                     // Mas de 30 dias sin sync: el diario ya no llega tan atras.
                     state.SnapshotDone = false;
                     state.CursorSince = null;
-                    return await Pull(ctx, user, state, index, sync, ct).ConfigureAwait(false);
+                    return await Pull(ctx, user, state, index, true, ct).ConfigureAwait(false);
+                }
+                RememberSettings(state, changes.Settings, changes.MaxBatch);
+                sync = state.Settings;
+                if (changes.Unchanged)
+                {
+                    state.CursorSince = changes.NextSince;
+                    res.Unchanged = true;
+                    res.InProgress = new List<InProgressRow>();
+                    return res;
                 }
                 foreach (var row in changes.Titles)
                 {
@@ -457,6 +547,8 @@ namespace Emby.Plugin.WeTrakr.Sync
                 }
                 state.CursorSince = changes.NextSince;
                 res.InProgress = changes.InProgress ?? new List<InProgressRow>();
+                // Las paginas siguientes de una lectura con cambios se leen enteras.
+                full = true;
             } while (changes.HasMore && ++guard < 100);
 
             return res;

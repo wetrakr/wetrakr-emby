@@ -32,7 +32,17 @@ Emby Server **4.8 or newer** (built against the 4.8 SDK, tested on 4.10).
 2. Press **Link WeTrakr** next to your Emby user.
 3. Go to [wetrakr.com/activate](https://wetrakr.com/activate?platform=emby) and enter the code.
 
-The first sync starts right away. After that the plugin syncs every 15 minutes (Emby **Scheduled Tasks → WeTrakr**), and you can run it any time with **Sync now**. What goes each way is set in WeTrakr: **Settings → Emby**.
+The first sync starts right away. What goes each way is set in WeTrakr: **Settings → Emby**.
+
+## When it syncs
+
+The plugin is designed to talk to WeTrakr as little as possible:
+
+- **Emby → WeTrakr** goes out as it happens: plays, marks, ratings and favorites are scrobbled live. Anything that could not be sent is picked up by the next upload, a few minutes later.
+- **WeTrakr → Emby** is checked with a single cheap request when someone starts using Emby, every 30 minutes while it is in use, and with a slow heartbeat when idle (30 minutes, doubling up to 6 hours while nothing changes). Nothing is downloaded unless WeTrakr reports a change.
+- A **full reconciliation** of both directions runs once a day, at night (Emby **Scheduled Tasks → WeTrakr**). You can run it any time with **Sync now**.
+
+An idle server makes about 4 requests a day per linked user.
 
 ## Build
 

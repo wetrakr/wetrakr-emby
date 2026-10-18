@@ -123,6 +123,7 @@ namespace Emby.Plugin.WeTrakr.Rest
                         LastScrobbleAt = link?.LastScrobbleAt,
                         LastSyncAt = link?.LastSyncAt,
                         LastSyncResult = link?.LastSyncResult,
+                        NextCheckAt = link != null ? SyncScheduler.Instance?.NextCheckFor(id) : null,
                         PendingCode = pending?.UserCode,
                         PendingUrl = pending?.VerificationUrl
                     };

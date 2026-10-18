@@ -49,6 +49,12 @@ namespace Emby.Plugin.WeTrakr.Sync
         /// <summary>Items que el sync metio en la playlist (solo esos se quitan).</summary>
         [JsonPropertyName("playlist_items")] public HashSet<long> PlaylistItems { get; set; } = new HashSet<long>();
 
+        /// <summary>Ajustes de sync de la cuenta en WeTrakr, tal y como llegaron en
+        /// la ultima respuesta de /status o /changes. null = aun no se han leido.</summary>
+        [JsonPropertyName("settings")] public Api.SyncSettings Settings { get; set; }
+
+        [JsonPropertyName("max_batch")] public int MaxBatch { get; set; } = 1000;
+
         public ItemState Get(long id)
         {
             if (!Items.TryGetValue(id, out var s))
