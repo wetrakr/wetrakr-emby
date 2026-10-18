@@ -14,7 +14,7 @@ A sync never removes a watch on its own: only an explicit "unwatched" on either 
 
 ## Requirements
 
-Emby Server **4.8 or newer** (tested on 4.8 and 4.10).
+Emby Server **4.8 or newer** (built against the 4.8 SDK, tested on 4.10).
 
 ## Install
 
