@@ -1,0 +1,60 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>WeTrakr</title>
+</head>
+<body>
+    <div id="WeTrakrConfigPage" data-role="page" class="page type-interior pluginConfigurationPage" data-require="emby-input,emby-button,emby-checkbox" data-controller="__plugin/wetrakrjs">
+        <style>
+            #WeTrakrConfigPage .wt-card { border: 1px solid rgba(128,128,128,.3); border-radius: 8px; padding: 1em 1.2em; margin: 0 0 1em; }
+            #WeTrakrConfigPage .wt-row { display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: .6em; }
+            #WeTrakrConfigPage .wt-name { font-weight: 600; font-size: 1.1em; }
+            #WeTrakrConfigPage .wt-muted { opacity: .7; font-size: .9em; }
+            #WeTrakrConfigPage .wt-ok { color: #52b54b; }
+            #WeTrakrConfigPage .wt-warn { color: #e0a800; }
+            #WeTrakrConfigPage .wt-code { font-size: 1.8em; letter-spacing: .15em; font-weight: 700; margin: .3em 0; }
+            #WeTrakrConfigPage .wt-actions .raised { margin: 0 .3em 0 0; }
+            #WeTrakrConfigPage .wt-status { min-height: 1.4em; margin: .6em 0; }
+        </style>
+        <div data-role="content">
+            <div class="content-primary">
+                <h2 class="sectionTitle">WeTrakr</h2>
+                <p class="wt-muted">
+                    Link each Emby user with their WeTrakr account. Plays are scrobbled live, and the library is kept in sync both ways:
+                    watched history, resume points, ratings, favorites and your Planning list (as a "WeTrakr Watchlist" playlist).
+                </p>
+
+                <h3 class="sectionTitle">Accounts</h3>
+                <div id="wtUsers"></div>
+                <div class="wt-status wt-muted" id="wtStatus"></div>
+
+                <h3 class="sectionTitle">Settings</h3>
+                <div class="checkboxContainer">
+                    <label><input is="emby-checkbox" type="checkbox" id="wtScrobblePlaying" /><span>Scrobble playback (Now Playing and watched when you finish)</span></label>
+                </div>
+                <div class="checkboxContainer">
+                    <label><input is="emby-checkbox" type="checkbox" id="wtScrobbleWatched" /><span>Send items you mark as watched or unwatched</span></label>
+                </div>
+                <div class="checkboxContainer">
+                    <label><input is="emby-checkbox" type="checkbox" id="wtScrobbleRatings" /><span>Send ratings and favorites</span></label>
+                </div>
+                <div class="checkboxContainer">
+                    <label><input is="emby-checkbox" type="checkbox" id="wtSyncEnabled" /><span>Sync library with WeTrakr (both ways)</span></label>
+                </div>
+                <div class="checkboxContainer">
+                    <label><input is="emby-checkbox" type="checkbox" id="wtWatchlistPlaylist" /><span>Keep a playlist with my WeTrakr Planning list</span></label>
+                </div>
+                <div class="inputContainer">
+                    <input is="emby-input" type="text" id="wtPlaylistName" label="Playlist name" />
+                </div>
+                <p class="wt-muted">What is imported and sent back in detail (watched, progress, ratings, favorites, Planning) is set per account in WeTrakr: Settings &gt; Emby.</p>
+                <div class="wt-actions">
+                    <button is="emby-button" type="button" class="raised button-submit" id="wtSave"><span>Save</span></button>
+                    <button is="emby-button" type="button" class="raised" id="wtSyncNow"><span>Sync now</span></button>
+                </div>
+                <p class="wt-muted" id="wtVersion"></p>
+            </div>
+        </div>
+    </div>
+</body>
+</html>
