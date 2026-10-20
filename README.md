@@ -24,7 +24,10 @@ Emby Server **4.8 or newer** (built against the 4.8 SDK, tested on 4.10).
    - Linux: `/var/lib/emby/plugins`
    - Windows: `%AppData%\Emby-Server\programdata\plugins`
    - On Linux/NAS, keep the same file owner as the other plugins.
+   - Any other setup: open the server web UI, **Dashboard** shows the "Program data path" of your server; `plugins` is inside it.
 3. Start Emby again.
+
+The plugin lives on the **server**, not on the apps. There is nothing to install on Android TV, Fire TV, phones or browsers: once the server has it, everything played from any client is scrobbled and synced.
 
 If the plugin page shows an error like `Cannot read properties of null` the first time you open it, your browser is holding a cached copy of an older page with the same name (for example from the community WeTrakr plugin). Reload with the cache cleared (Ctrl+Shift+R / Cmd+Shift+R) and it loads fine. If you used that community plugin, remove it: otherwise every play reaches WeTrakr twice.
 
