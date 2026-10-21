@@ -52,6 +52,26 @@ namespace Emby.Plugin.WeTrakr
                     Name = "wetrakrjs",
                     EmbeddedResourcePath = GetType().Namespace + ".Configuration.configPage.js",
                     IsMainConfigPage = false
+                },
+                // Pagina de CADA usuario (Settings > WeTrakr): enlazar su propia
+                // cuenta sin pasar por el administrador.
+                new PluginPageInfo
+                {
+                    Name = "WeTrakrUser",
+                    DisplayName = "WeTrakr",
+                    EmbeddedResourcePath = GetType().Namespace + ".Configuration.userPage.html",
+                    EnableInUserMenu = true,
+                    MenuIcon = "sync",
+                    // El cliente web pide las paginas del menu de usuario con
+                    // PageType=PluginConfiguration, y Emby solo da ese tipo a las
+                    // paginas marcadas como "main": sin esto no aparece.
+                    IsMainConfigPage = true
+                },
+                new PluginPageInfo
+                {
+                    Name = "wetrakruserjs",
+                    EmbeddedResourcePath = GetType().Namespace + ".Configuration.userPage.js",
+                    IsMainConfigPage = false
                 }
             };
         }

@@ -1,0 +1,31 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>WeTrakr</title>
+</head>
+<body>
+    <div id="WeTrakrUserPage" data-role="page" class="page type-interior pluginConfigurationPage" data-require="emby-button" data-controller="__plugin/wetrakruserjs">
+        <style>
+            #WeTrakrUserPage .wt-card { border: 1px solid rgba(128,128,128,.3); border-radius: 8px; padding: 1em 1.2em; margin: 0 0 1em; }
+            #WeTrakrUserPage .wt-muted { opacity: .7; font-size: .9em; }
+            #WeTrakrUserPage .wt-ok { color: #52b54b; }
+            #WeTrakrUserPage .wt-warn { color: #e0a800; }
+            #WeTrakrUserPage .wt-code { font-size: 1.8em; letter-spacing: .15em; font-weight: 700; margin: .3em 0; }
+            #WeTrakrUserPage .wt-actions { margin-top: .8em; }
+            #WeTrakrUserPage .wt-actions .raised { margin: 0 .3em .3em 0; }
+            #WeTrakrUserPage .wt-status { min-height: 1.4em; margin: .6em 0; }
+        </style>
+        <div data-role="content">
+            <div class="content-primary">
+                <h2 class="sectionTitle">WeTrakr</h2>
+                <p class="wt-muted">
+                    Link this Emby user with your WeTrakr account. What you play is scrobbled live and your library is kept in sync with WeTrakr both ways.
+                </p>
+                <div id="wtMe"></div>
+                <div class="wt-status wt-muted" id="wtStatus"></div>
+                <p class="wt-muted" id="wtVersion"></p>
+            </div>
+        </div>
+    </div>
+</body>
+</html>

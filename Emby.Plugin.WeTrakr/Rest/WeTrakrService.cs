@@ -1,9 +1,6 @@
 using System;
-using System.Collections.Concurrent;
 using System.Collections.Generic;
 using System.Linq;
-using System.Threading;
-using Emby.Plugin.WeTrakr.Api;
 using Emby.Plugin.WeTrakr.Configuration;
 using Emby.Plugin.WeTrakr.Sync;
 using Emby.Plugin.WeTrakr.Tasks;
@@ -80,18 +77,6 @@ namespace Emby.Plugin.WeTrakr.Rest
 
     public class WeTrakrService : IService
     {
-        private class Pending
-        {
-            public string DeviceCode;
-            public string UserCode;
-            public string VerificationUrl;
-            public DateTime ExpiresAt;
-        }
-
-        // Emparejamientos en curso por usuario de Emby. En memoria: si Emby se
-        // reinicia a mitad, se pide otro codigo.
-        private static readonly ConcurrentDictionary<string, Pending> PendingByUser = new ConcurrentDictionary<string, Pending>();
-
         private readonly IUserManager _users;
         private readonly ILibraryManager _library;
         private readonly ITaskManager _tasks;
@@ -112,28 +97,7 @@ namespace Emby.Plugin.WeTrakr.Rest
             var cfg = Config;
             var users = _users.GetUserList(new UserQuery())
                 .OrderBy(u => u.Name)
-                .Select(u =>
-                {
-                    var id = PluginConfiguration.NormalizeId(u.Id.ToString("N"));
-                    var link = cfg.FindLink(id);
-                    PendingByUser.TryGetValue(id, out var pending);
-                    if (pending != null && pending.ExpiresAt < DateTime.UtcNow) pending = null;
-                    return new
-                    {
-                        UserId = id,
-                        UserName = u.Name,
-                        Linked = link != null && !string.IsNullOrEmpty(link.Token),
-                        Invalid = link?.Invalid ?? false,
-                        WeTrakrUsername = link?.WeTrakrUsername,
-                        LinkedAt = link?.LinkedAt,
-                        LastScrobbleAt = link?.LastScrobbleAt,
-                        LastSyncAt = link?.LastSyncAt,
-                        LastSyncResult = link?.LastSyncResult,
-                        NextCheckAt = link != null ? SyncScheduler.Instance?.NextCheckFor(id) : null,
-                        PendingCode = pending?.UserCode,
-                        PendingUrl = pending?.VerificationUrl
-                    };
-                })
+                .Select(LinkFlow.Status)
                 .ToArray();
 
             var excluded = new HashSet<string>(cfg.ExcludedLibraryIds ?? Array.Empty<string>(), StringComparer.OrdinalIgnoreCase);
@@ -160,95 +124,26 @@ namespace Emby.Plugin.WeTrakr.Rest
         public object Post(StartWeTrakrConnect request)
         {
             var id = PluginConfiguration.NormalizeId(request.UserId);
-            var user = _users.GetUserById(id);
-            if (user == null) return new { Ok = false, Error = "Emby user not found" };
-
-            try
-            {
-                var code = WeTrakrApi.RequestDeviceCode(CancellationToken.None).GetAwaiter().GetResult();
-                var pending = new Pending
-                {
-                    DeviceCode = code.DeviceCode,
-                    UserCode = code.UserCode,
-                    VerificationUrl = code.VerificationUrl,
-                    ExpiresAt = DateTime.UtcNow.AddSeconds(code.ExpiresIn > 0 ? code.ExpiresIn : 600)
-                };
-                PendingByUser[id] = pending;
-                return new { Ok = true, UserCode = pending.UserCode, VerificationUrl = pending.VerificationUrl, Interval = code.Interval > 0 ? code.Interval : 5 };
-            }
-            catch (Exception ex)
-            {
-                _logger.ErrorException("WeTrakr: could not start pairing", ex);
-                return new { Ok = false, Error = "Could not reach WeTrakr: " + ex.Message };
-            }
+            if (_users.GetUserById(id) == null) return new { Ok = false, Error = "Emby user not found" };
+            return LinkFlow.Start(id, _logger);
         }
 
         public object Post(PollWeTrakrConnect request)
         {
-            var id = PluginConfiguration.NormalizeId(request.UserId);
-            if (!PendingByUser.TryGetValue(id, out var pending)) return new { Status = "none" };
-            if (pending.ExpiresAt < DateTime.UtcNow)
-            {
-                PendingByUser.TryRemove(id, out _);
-                return new { Status = "expired" };
-            }
-
-            try
-            {
-                var token = WeTrakrApi.PollDeviceToken(pending.DeviceCode, CancellationToken.None).GetAwaiter().GetResult();
-                if (token == null || string.IsNullOrEmpty(token.AccessToken)) return new { Status = "pending" };
-
-                PendingByUser.TryRemove(id, out _);
-                var user = _users.GetUserById(id);
-                var cfg = Config;
-
-                // Una cuenta de WeTrakr tiene un solo token de Emby y cada
-                // emparejamiento lo renueva: el enlace de otra cuenta de Emby a la
-                // misma cuenta de WeTrakr queda muerto y se quita.
-                var stale = cfg.UserLinks.Where(l => l.EmbyUserId != id && string.Equals(l.WeTrakrUsername, token.Username, StringComparison.OrdinalIgnoreCase)).Select(l => l.EmbyUserName).ToArray();
-                foreach (var l in cfg.UserLinks.Where(l => l.EmbyUserId != id && string.Equals(l.WeTrakrUsername, token.Username, StringComparison.OrdinalIgnoreCase)).ToList())
-                {
-                    cfg.Remove(l.EmbyUserId);
-                }
-
-                cfg.Upsert(new UserLink
-                {
-                    EmbyUserId = id,
-                    EmbyUserName = user?.Name,
-                    Token = token.AccessToken,
-                    WeTrakrUsername = token.Username,
-                    LinkedAt = DateTime.UtcNow
-                });
-                Plugin.Instance.SaveConfiguration();
-                // Un enlace nuevo empieza el sync de cero (otra cuenta de WeTrakr).
-                SyncStateStore.Reset(id);
-                _tasks.QueueScheduledTask<WeTrakrSyncTask>();
-
-                return new { Status = "linked", Username = token.Username, StaleLinksRemoved = stale };
-            }
-            catch (ApiException ex)
-            {
-                PendingByUser.TryRemove(id, out _);
-                return new { Status = ex.Error == "expired_token" ? "expired" : "denied", Error = ex.Message };
-            }
-            catch (Exception ex)
-            {
-                return new { Status = "pending", Error = ex.Message };
-            }
+            var user = _users.GetUserById(PluginConfiguration.NormalizeId(request.UserId));
+            if (user == null) return new { Status = "none" };
+            return LinkFlow.Poll(user, _tasks);
         }
 
         public object Post(CancelWeTrakrConnect request)
         {
-            PendingByUser.TryRemove(PluginConfiguration.NormalizeId(request.UserId), out _);
+            LinkFlow.Cancel(request.UserId);
             return new { Ok = true };
         }
 
         public object Post(DisconnectWeTrakr request)
         {
-            var id = PluginConfiguration.NormalizeId(request.UserId);
-            Config.Remove(id);
-            Plugin.Instance.SaveConfiguration();
-            SyncStateStore.Reset(id);
+            LinkFlow.Disconnect(request.UserId);
             return new { Ok = true };
         }
 
@@ -278,8 +173,7 @@ namespace Emby.Plugin.WeTrakr.Rest
 
         public object Post(ResetWeTrakrSync request)
         {
-            SyncStateStore.Reset(PluginConfiguration.NormalizeId(request.UserId));
-            _tasks.QueueScheduledTask<WeTrakrSyncTask>();
+            LinkFlow.Resync(request.UserId, _tasks);
             return new { Ok = true };
         }
     }

@@ -15,14 +15,16 @@
   <ItemGroup>
     <!-- El SDK y System.Text.Json los pone el propio Emby en tiempo de ejecucion:
          solo se compila contra ellos, la DLL del plugin va sola. -->
-    <PackageReference Include="MediaBrowser.Server.Core" Version="4.8.11" PrivateAssets="all" ExcludeAssets="runtime" />
+    <PackageReference Include="MediaBrowser.Server.Core" Version="4.9.1.90" PrivateAssets="all" ExcludeAssets="runtime" />
     <PackageReference Include="System.Text.Json" Version="6.0.10" PrivateAssets="all" ExcludeAssets="runtime" />
-    <PackageReference Include="System.Memory" Version="4.5.5" PrivateAssets="all" ExcludeAssets="runtime" />
+    <PackageReference Include="System.Memory" Version="4.6.3" PrivateAssets="all" ExcludeAssets="runtime" />
   </ItemGroup>
 
   <ItemGroup>
     <EmbeddedResource Include="Configuration\configPage.html" />
     <EmbeddedResource Include="Configuration\configPage.js" />
+    <EmbeddedResource Include="Configuration\userPage.html" />
+    <EmbeddedResource Include="Configuration\userPage.js" />
     <EmbeddedResource Include="thumb.png" />
   </ItemGroup>
 
