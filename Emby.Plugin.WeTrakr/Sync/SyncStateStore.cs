@@ -22,6 +22,9 @@ namespace Emby.Plugin.WeTrakr.Sync
 
         /// <summary>El punto de reanudacion lo escribio el sync (viene de WeTrakr).</summary>
         [JsonPropertyName("wpos")] public bool PositionFromWeTrakr { get; set; }
+
+        /// <summary>Se desmarco en Emby a proposito: el visto de WeTrakr no lo vuelve a marcar.</summary>
+        [JsonPropertyName("unw")] public bool UnwatchedInEmby { get; set; }
     }
 
     public class UserSyncState

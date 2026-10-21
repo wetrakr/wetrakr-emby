@@ -1,5 +1,6 @@
 using System;
 using System.Collections.Concurrent;
+using System.Collections.Generic;
 using System.Linq;
 using System.Threading;
 using Emby.Plugin.WeTrakr.Api;
@@ -57,10 +58,13 @@ namespace Emby.Plugin.WeTrakr.Rest
     {
         public bool ScrobblePlaying { get; set; }
         public bool ScrobbleWatched { get; set; }
+        public bool ScrobbleUnwatched { get; set; }
         public bool ScrobbleRatings { get; set; }
-        public bool SyncEnabled { get; set; }
+        public bool SyncToWeTrakr { get; set; }
+        public bool SyncFromWeTrakr { get; set; }
         public bool WatchlistPlaylist { get; set; }
         public string WatchlistPlaylistName { get; set; }
+        public string[] ExcludedLibraryIds { get; set; }
     }
 
     [Route("/WeTrakr/Sync/Run", "POST")]
@@ -89,12 +93,14 @@ namespace Emby.Plugin.WeTrakr.Rest
         private static readonly ConcurrentDictionary<string, Pending> PendingByUser = new ConcurrentDictionary<string, Pending>();
 
         private readonly IUserManager _users;
+        private readonly ILibraryManager _library;
         private readonly ITaskManager _tasks;
         private readonly ILogger _logger;
 
-        public WeTrakrService(IUserManager users, ITaskManager tasks, ILogManager logManager)
+        public WeTrakrService(IUserManager users, ILibraryManager library, ITaskManager tasks, ILogManager logManager)
         {
             _users = users;
+            _library = library;
             _tasks = tasks;
             _logger = logManager.GetLogger("WeTrakr");
         }
@@ -130,14 +136,22 @@ namespace Emby.Plugin.WeTrakr.Rest
                 })
                 .ToArray();
 
+            var excluded = new HashSet<string>(cfg.ExcludedLibraryIds ?? Array.Empty<string>(), StringComparer.OrdinalIgnoreCase);
+            var libraries = LibraryFilter.SelectableLibraries(_library)
+                .Select(v => new { Id = v.ItemId, v.Name, v.CollectionType, Excluded = excluded.Contains(v.ItemId) })
+                .ToArray();
+
             return new
             {
                 Version = Plugin.Instance.PluginVersion,
                 Users = users,
+                Libraries = libraries,
                 cfg.ScrobblePlaying,
                 cfg.ScrobbleWatched,
+                cfg.ScrobbleUnwatched,
                 cfg.ScrobbleRatings,
-                cfg.SyncEnabled,
+                SyncToWeTrakr = cfg.UploadEnabled,
+                SyncFromWeTrakr = cfg.PullEnabled,
                 cfg.WatchlistPlaylist,
                 cfg.WatchlistPlaylistName
             };
@@ -243,8 +257,13 @@ namespace Emby.Plugin.WeTrakr.Rest
             var cfg = Config;
             cfg.ScrobblePlaying = request.ScrobblePlaying;
             cfg.ScrobbleWatched = request.ScrobbleWatched;
+            cfg.ScrobbleUnwatched = request.ScrobbleUnwatched;
             cfg.ScrobbleRatings = request.ScrobbleRatings;
-            cfg.SyncEnabled = request.SyncEnabled;
+            cfg.SyncToWeTrakr = request.SyncToWeTrakr;
+            cfg.SyncFromWeTrakr = request.SyncFromWeTrakr;
+            cfg.SyncEnabled = request.SyncToWeTrakr || request.SyncFromWeTrakr;
+            cfg.ExcludedLibraryIds = (request.ExcludedLibraryIds ?? Array.Empty<string>())
+                .Where(id => !string.IsNullOrWhiteSpace(id)).Select(id => id.Trim()).Distinct().ToArray();
             cfg.WatchlistPlaylist = request.WatchlistPlaylist;
             if (!string.IsNullOrWhiteSpace(request.WatchlistPlaylistName)) cfg.WatchlistPlaylistName = request.WatchlistPlaylistName.Trim();
             Plugin.Instance.SaveConfiguration();

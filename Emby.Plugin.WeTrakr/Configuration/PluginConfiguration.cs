@@ -19,11 +19,40 @@ namespace Emby.Plugin.WeTrakr.Configuration
 
         public bool ScrobblePlaying { get; set; } = true;
         public bool ScrobbleWatched { get; set; } = true;
+
+        /// <summary>
+        /// Con ScrobbleWatched, manda tambien el "marcar como no visto". Apagado
+        /// por defecto: en Emby se desmarca para volver a ver una serie (asi
+        /// Continue Watching ofrece el siguiente episodio) y eso no debe quitar el
+        /// visto en WeTrakr. El sync nunca manda "no visto" en ningun caso.
+        /// </summary>
+        public bool ScrobbleUnwatched { get; set; } = false;
+
         public bool ScrobbleRatings { get; set; } = true;
 
-        /// <summary>Sync de biblioteca (las dos direcciones). Lo que se importa o
-        /// se devuelve en concreto lo deciden los ajustes de la cuenta en WeTrakr.</summary>
+        /// <summary>
+        /// Interruptor general del sync (el unico que habia hasta la 0.2). Se
+        /// conserva para que una configuracion guardada con el sync apagado siga
+        /// apagada; desde la 0.3 la pagina lo pone a true si alguna direccion lo
+        /// esta. Lo que se importa o se devuelve en concreto (visto, progreso,
+        /// notas, favoritos, Planning) lo deciden los ajustes de la cuenta en WeTrakr.
+        /// </summary>
         public bool SyncEnabled { get; set; } = true;
+
+        /// <summary>Emby → WeTrakr: la biblioteca entera la primera vez, despues solo cambios.</summary>
+        public bool SyncToWeTrakr { get; set; } = true;
+
+        /// <summary>WeTrakr → Emby: vistos, puntos de reanudacion, notas, favoritos y la playlist de Planning.</summary>
+        public bool SyncFromWeTrakr { get; set; } = true;
+
+        public bool UploadEnabled => SyncEnabled && SyncToWeTrakr;
+        public bool PullEnabled => SyncEnabled && SyncFromWeTrakr;
+
+        /// <summary>
+        /// Bibliotecas de Emby que el plugin ignora del todo (ni scrobble ni sync):
+        /// ids de VirtualFolderInfo.ItemId tal y como los da Emby.
+        /// </summary>
+        public string[] ExcludedLibraryIds { get; set; } = Array.Empty<string>();
 
         /// <summary>Crea y mantiene la playlist "WeTrakr Watchlist" con lo de Planning.</summary>
         public bool WatchlistPlaylist { get; set; } = true;

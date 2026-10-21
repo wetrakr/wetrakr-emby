@@ -24,14 +24,16 @@ namespace Emby.Plugin.WeTrakr.Scrobbling
     {
         private readonly ISessionManager _sessionManager;
         private readonly IUserDataManager _userDataManager;
+        private readonly ILibraryManager _library;
         private readonly ILogger _logger;
         private readonly PauseStateTracker _pause = new PauseStateTracker();
         private readonly PlayedStateTracker _played = new PlayedStateTracker();
 
-        public ScrobbleManager(ISessionManager sessionManager, IUserDataManager userDataManager, ILogManager logManager)
+        public ScrobbleManager(ISessionManager sessionManager, IUserDataManager userDataManager, ILibraryManager library, ILogManager logManager)
         {
             _sessionManager = sessionManager;
             _userDataManager = userDataManager;
+            _library = library;
             _logger = logManager.GetLogger("WeTrakr");
         }
 
@@ -54,6 +56,12 @@ namespace Emby.Plugin.WeTrakr.Scrobbling
 
         private static PluginConfiguration Config => Plugin.Instance?.Configuration;
 
+        /// <summary>Pelicula o episodio de una biblioteca que no esta excluida.</summary>
+        private bool Tracked(BaseItem item)
+        {
+            return PayloadBuilder.IsSupported(item) && !LibraryFilter.Current(_library).IsExcluded(item);
+        }
+
         private static string SessionKey(PlaybackProgressEventArgs e)
         {
             return e.PlaySessionId ?? e.Session?.Id ?? e.DeviceId ?? string.Empty;
@@ -63,7 +71,7 @@ namespace Emby.Plugin.WeTrakr.Scrobbling
         {
             try
             {
-                if (Config == null || !Config.ScrobblePlaying || !PayloadBuilder.IsSupported(e.Item)) return;
+                if (Config == null || !Config.ScrobblePlaying || !Tracked(e.Item)) return;
                 _pause.Seed(SessionKey(e), e.IsPaused);
                 foreach (var user in e.Users ?? Enumerable.Empty<User>().ToList())
                 {
@@ -80,7 +88,7 @@ namespace Emby.Plugin.WeTrakr.Scrobbling
         {
             try
             {
-                if (Config == null || !Config.ScrobblePlaying || !PayloadBuilder.IsSupported(e.Item)) return;
+                if (Config == null || !Config.ScrobblePlaying || !Tracked(e.Item)) return;
                 var evt = _pause.Transition(SessionKey(e), e.IsPaused);
                 if (evt == null) return;
                 foreach (var user in e.Users ?? Enumerable.Empty<User>().ToList())
@@ -99,7 +107,7 @@ namespace Emby.Plugin.WeTrakr.Scrobbling
             try
             {
                 _pause.Clear(SessionKey(e));
-                if (Config == null || !Config.ScrobblePlaying || !PayloadBuilder.IsSupported(e.Item)) return;
+                if (Config == null || !Config.ScrobblePlaying || !Tracked(e.Item)) return;
                 foreach (var user in e.Users ?? Enumerable.Empty<User>().ToList())
                 {
                     var payload = PayloadBuilder.Build("PlaybackStop", user, e.Item, e.PlaybackPositionTicks ?? 0, false, e.PlayedToCompletion);
@@ -133,7 +141,7 @@ namespace Emby.Plugin.WeTrakr.Scrobbling
             try
             {
                 var cfg = Config;
-                if (cfg == null || e.User == null || !PayloadBuilder.IsSupported(e.Item)) return;
+                if (cfg == null || e.User == null || !Tracked(e.Item)) return;
                 // Import = escrituras del propio sync (y de otros plugins): nunca
                 // se reenvian, o el sync se devolveria a si mismo en bucle. La
                 // reproduccion ya la cubren los eventos de playback.
@@ -147,6 +155,15 @@ namespace Emby.Plugin.WeTrakr.Scrobbling
                         var itemId = e.Item.InternalId;
                         var played = e.UserData != null && e.UserData.Played;
                         if (!_played.ShouldSend(userId, itemId, played)) return;
+                        if (!played && !cfg.ScrobbleUnwatched)
+                        {
+                            // El "no visto" se queda en Emby. Se registra igual para
+                            // que el siguiente "visto" del mismo item si se envie, y
+                            // la playlist se refresca (cambia el siguiente sin ver).
+                            _played.Commit(userId, itemId, false);
+                            SyncSignals.MarkDirty(userId);
+                            return;
+                        }
                         var marked = PayloadBuilder.Build("ItemMarkedPlayed", e.User, e.Item, e.UserData?.PlaybackPositionTicks ?? 0, false, played);
                         marked.IsFavorite = e.UserData?.IsFavorite;
                         marked.UserRating = e.UserData?.Rating;

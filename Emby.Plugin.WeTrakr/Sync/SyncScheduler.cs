@@ -195,6 +195,8 @@ namespace Emby.Plugin.WeTrakr.Sync
                     if (local != null) SyncSignals.ClearDirty(link.EmbyUserId, seen);
                 }
 
+                // Sin la direccion WeTrakr → Emby no hay nada que preguntar.
+                if (!cfg.PullEnabled) continue;
                 if (clock.NextCheckAt == default(DateTime)) clock.NextCheckAt = now;
                 if (now < clock.NextCheckAt) continue;
 

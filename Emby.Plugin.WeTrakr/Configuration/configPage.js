@@ -68,14 +68,32 @@ define(['loading', 'emby-input', 'emby-button', 'emby-checkbox'], function (load
             });
         }
 
+        function renderLibraries(libs) {
+            var html = libs.map(function (l) {
+                var type = l.CollectionType ? ' <span class="wt-muted">(' + esc(l.CollectionType) + ')</span>' : '';
+                return '<div class="checkboxContainer"><label><input is="emby-checkbox" type="checkbox" class="wtLibrary" data-id="' + esc(l.Id) + '"' +
+                    (l.Excluded ? ' checked' : '') + ' /><span>' + esc(l.Name) + type + '</span></label></div>';
+            }).join('');
+            view.querySelector('#wtLibraries').innerHTML = html || '<p class="wt-muted">No movie or TV libraries found.</p>';
+        }
+
+        function excludedLibraryIds() {
+            return Array.prototype.map.call(view.querySelectorAll('.wtLibrary:checked'), function (cb) {
+                return cb.getAttribute('data-id');
+            });
+        }
+
         function load() {
             loading.show();
             return api('GET', 'WeTrakr/Status').then(function (s) {
                 view.querySelector('#wtScrobblePlaying').checked = !!s.ScrobblePlaying;
                 view.querySelector('#wtScrobbleWatched').checked = !!s.ScrobbleWatched;
+                view.querySelector('#wtScrobbleUnwatched').checked = !!s.ScrobbleUnwatched;
                 view.querySelector('#wtScrobbleRatings').checked = !!s.ScrobbleRatings;
-                view.querySelector('#wtSyncEnabled').checked = !!s.SyncEnabled;
+                view.querySelector('#wtSyncToWeTrakr').checked = !!s.SyncToWeTrakr;
+                view.querySelector('#wtSyncFromWeTrakr').checked = !!s.SyncFromWeTrakr;
                 view.querySelector('#wtWatchlistPlaylist').checked = !!s.WatchlistPlaylist;
+                renderLibraries(s.Libraries || []);
                 view.querySelector('#wtPlaylistName').value = s.WatchlistPlaylistName || 'WeTrakr Watchlist';
                 view.querySelector('#wtVersion').textContent = 'Plugin version ' + (s.Version || '');
                 renderUsers(s.Users || []);
@@ -143,10 +161,13 @@ define(['loading', 'emby-input', 'emby-button', 'emby-checkbox'], function (load
             api('POST', 'WeTrakr/Settings', {
                 ScrobblePlaying: view.querySelector('#wtScrobblePlaying').checked,
                 ScrobbleWatched: view.querySelector('#wtScrobbleWatched').checked,
+                ScrobbleUnwatched: view.querySelector('#wtScrobbleUnwatched').checked,
                 ScrobbleRatings: view.querySelector('#wtScrobbleRatings').checked,
-                SyncEnabled: view.querySelector('#wtSyncEnabled').checked,
+                SyncToWeTrakr: view.querySelector('#wtSyncToWeTrakr').checked,
+                SyncFromWeTrakr: view.querySelector('#wtSyncFromWeTrakr').checked,
                 WatchlistPlaylist: view.querySelector('#wtWatchlistPlaylist').checked,
-                WatchlistPlaylistName: view.querySelector('#wtPlaylistName').value
+                WatchlistPlaylistName: view.querySelector('#wtPlaylistName').value,
+                ExcludedLibraryIds: excludedLibraryIds()
             }).then(function () { setStatus('Settings saved.'); });
         });
 

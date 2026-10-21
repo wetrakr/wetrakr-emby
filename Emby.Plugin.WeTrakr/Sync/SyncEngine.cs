@@ -154,6 +154,7 @@ namespace Emby.Plugin.WeTrakr.Sync
 
             try
             {
+                var cfg = Plugin.Instance.Configuration;
                 var state = SyncStateStore.Load(link.EmbyUserId);
 
                 // Los ajustes llegan en cada /changes; /status solo hace falta la
@@ -167,7 +168,7 @@ namespace Emby.Plugin.WeTrakr.Sync
                 // Subida: siempre en Full y Local (cero peticiones si el diff esta
                 // vacio); en Check solo la primera vez, que es la que mas pesa y
                 // debe ir antes de que el snapshot pise el estado local.
-                if (mode != Mode.Check || !state.InitialDone)
+                if (cfg.UploadEnabled && (mode != Mode.Check || !state.InitialDone))
                 {
                     result.Uploaded = await Upload(ctx, user, state, Math.Max(1, Math.Min(state.MaxBatch, 1000)), ct).ConfigureAwait(false);
                     SyncStateStore.Save(link.EmbyUserId, state);
@@ -176,7 +177,7 @@ namespace Emby.Plugin.WeTrakr.Sync
                 LibraryIndex index = null;
                 var sync = state.Settings ?? new SyncSettings();
 
-                if (mode != Mode.Local)
+                if (mode != Mode.Local && cfg.PullEnabled)
                 {
                     index = LibraryIndex.Build(_library, user);
                     var pull = await Pull(ctx, user, state, index, mode == Mode.Full, ct).ConfigureAwait(false);
@@ -191,7 +192,7 @@ namespace Emby.Plugin.WeTrakr.Sync
                 // Playlist: cuando pudo cambiar Planning (bajada con cambios) o lo
                 // visto en Emby (modo Local: el siguiente episodio sin ver cambia).
                 var playlistDue = mode == Mode.Full || mode == Mode.Local || result.Applied > 0;
-                if (playlistDue && Plugin.Instance.Configuration.WatchlistPlaylist && sync.PushPlanning)
+                if (playlistDue && cfg.PullEnabled && cfg.WatchlistPlaylist && sync.PushPlanning)
                 {
                     if (index == null) index = LibraryIndex.Build(_library, user);
                     await SyncPlaylist(user, state, index, ct).ConfigureAwait(false);
@@ -240,7 +241,7 @@ namespace Emby.Plugin.WeTrakr.Sync
         {
             var scanStarted = DateTime.UtcNow;
             var initial = !state.InitialDone;
-            var candidates = initial ? ScanInitial(user) : ScanChanged(user, state.LastScanAt ?? DateTime.UtcNow.AddDays(-1));
+            var candidates = LibraryFilter.Current(_library).Apply(initial ? ScanInitial(user) : ScanChanged(user, state.LastScanAt ?? DateTime.UtcNow.AddDays(-1)));
             var userId = PluginConfiguration.NormalizeId(user.Id.ToString("N"));
 
             var items = new List<ImportItem>();
@@ -403,6 +404,18 @@ namespace Emby.Plugin.WeTrakr.Sync
             return changed ? it : null;
         }
 
+        /// <summary>
+        /// Un "no visto" hecho en Emby a proposito (el sync no lo manda, y el
+        /// scrobble solo si se activa) gana sobre el visto de WeTrakr mientras
+        /// WeTrakr no tenga un visionado posterior al que Emby conocia.
+        /// </summary>
+        private static bool KeepLocalUnwatch(ItemState st, WatchedState watched)
+        {
+            if (!st.UnwatchedInEmby) return false;
+            var last = watched.LastWatchedAt?.ToUniversalTime().Ticks ?? 0;
+            return watched.Unknown || last <= st.LastPlayedTicks;
+        }
+
         private static bool SameRating(double? a, double? b)
         {
             if (a == null || b == null) return a == null && b == null;
@@ -411,6 +424,10 @@ namespace Emby.Plugin.WeTrakr.Sync
 
         private static void Remember(ItemState st, UserItemData data)
         {
+            // Visto → no visto observado en Emby: fue a proposito (el sync solo
+            // desmarca desde ApplyRow, que lo deshace justo despues).
+            if (st.Played && !data.Played) st.UnwatchedInEmby = true;
+            if (data.Played) st.UnwatchedInEmby = false;
             st.Played = data.Played;
             st.LastPlayedTicks = data.LastPlayedDate?.UtcTicks ?? 0;
             st.PlayCount = data.PlayCount;
@@ -564,10 +581,15 @@ namespace Emby.Plugin.WeTrakr.Sync
                 if (data == null) continue;
                 var st = state.Get(item.InternalId);
                 var dirty = false;
+                var unwatchFromWeTrakr = false;
+
+                // Desmarcado en Emby desde la ultima pasada (para volver a verlo):
+                // se recuerda para no volver a marcarlo con el estado de WeTrakr.
+                if (st.Played && !data.Played) st.UnwatchedInEmby = true;
 
                 if (sync.PushWatched && row.Watched != null && !(item is Series))
                 {
-                    if (row.Watched.IsWatched && !data.Played)
+                    if (row.Watched.IsWatched && !data.Played && !KeepLocalUnwatch(st, row.Watched))
                     {
                         data.Played = true;
                         data.PlayCount = Math.Max(Math.Max(data.PlayCount, 1), row.Watched.PlayCount);
@@ -591,6 +613,7 @@ namespace Emby.Plugin.WeTrakr.Sync
                         {
                             data.Played = false;
                             dirty = true;
+                            unwatchFromWeTrakr = true;
                         }
                     }
                 }
@@ -626,6 +649,7 @@ namespace Emby.Plugin.WeTrakr.Sync
                     applied++;
                 }
                 Remember(st, data);
+                if (unwatchFromWeTrakr) st.UnwatchedInEmby = false;
             }
             return applied;
         }

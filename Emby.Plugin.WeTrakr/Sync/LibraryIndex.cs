@@ -27,13 +27,13 @@ namespace Emby.Plugin.WeTrakr.Sync
         public static LibraryIndex Build(ILibraryManager library, User user)
         {
             var idx = new LibraryIndex();
-            var items = library.GetItemList(new InternalItemsQuery
+            var items = LibraryFilter.Current(library).Apply(library.GetItemList(new InternalItemsQuery
             {
                 User = user,
                 IncludeItemTypes = new[] { "Movie", "Series", "Episode" },
                 Recursive = true,
                 IsVirtualItem = false
-            });
+            }));
 
             foreach (var item in items)
             {

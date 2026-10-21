@@ -15,6 +15,8 @@
             #WeTrakrConfigPage .wt-code { font-size: 1.8em; letter-spacing: .15em; font-weight: 700; margin: .3em 0; }
             #WeTrakrConfigPage .wt-actions .raised { margin: 0 .3em 0 0; }
             #WeTrakrConfigPage .wt-status { min-height: 1.4em; margin: .6em 0; }
+            #WeTrakrConfigPage .wt-sub { margin-left: 2.2em; }
+            #WeTrakrConfigPage .wt-hint { margin: -.4em 0 .8em 2.2em; }
         </style>
         <div data-role="content">
             <div class="content-primary">
@@ -33,22 +35,36 @@
                     <label><input is="emby-checkbox" type="checkbox" id="wtScrobblePlaying" /><span>Scrobble playback (Now Playing and watched when you finish)</span></label>
                 </div>
                 <div class="checkboxContainer">
-                    <label><input is="emby-checkbox" type="checkbox" id="wtScrobbleWatched" /><span>Send items you mark as watched or unwatched</span></label>
+                    <label><input is="emby-checkbox" type="checkbox" id="wtScrobbleWatched" /><span>Send items you mark as watched</span></label>
                 </div>
+                <div class="checkboxContainer wt-sub">
+                    <label><input is="emby-checkbox" type="checkbox" id="wtScrobbleUnwatched" /><span>Also send items you mark as unwatched</span></label>
+                </div>
+                <p class="wt-muted wt-hint">Off: unmarking in Emby (for example to rewatch a show) stays in Emby and does not clear the watch in WeTrakr. WeTrakr never deletes your history either way.</p>
                 <div class="checkboxContainer">
                     <label><input is="emby-checkbox" type="checkbox" id="wtScrobbleRatings" /><span>Send ratings and favorites</span></label>
                 </div>
+
+                <h3 class="sectionTitle">Library sync</h3>
                 <div class="checkboxContainer">
-                    <label><input is="emby-checkbox" type="checkbox" id="wtSyncEnabled" /><span>Sync library with WeTrakr (both ways)</span></label>
+                    <label><input is="emby-checkbox" type="checkbox" id="wtSyncToWeTrakr" /><span>Emby → WeTrakr: send my library (watched history, resume points, ratings, favorites)</span></label>
                 </div>
+                <p class="wt-muted wt-hint">The whole library is sent once, on the first sync. After that only what changes in Emby is sent, as it happens.</p>
                 <div class="checkboxContainer">
+                    <label><input is="emby-checkbox" type="checkbox" id="wtSyncFromWeTrakr" /><span>WeTrakr → Emby: bring what changes in WeTrakr (watched elsewhere, resume points, ratings, favorites, Planning)</span></label>
+                </div>
+                <p class="wt-muted wt-hint">Checked with one small request when someone starts using Emby and every 30 minutes while in use; a full reconciliation runs once a day (Scheduled Tasks &gt; WeTrakr).</p>
+                <div class="checkboxContainer wt-sub">
                     <label><input is="emby-checkbox" type="checkbox" id="wtWatchlistPlaylist" /><span>Keep a playlist with my WeTrakr Planning list</span></label>
                 </div>
-                <div class="inputContainer">
+                <div class="inputContainer wt-sub">
                     <input is="emby-input" type="text" id="wtPlaylistName" label="Playlist name" />
                 </div>
                 <p class="wt-muted">What is imported and sent back in detail (watched, progress, ratings, favorites, Planning) is set per account in WeTrakr: Settings &gt; Emby.</p>
-                <p class="wt-muted">Changes made in Emby are sent as they happen. Changes made in WeTrakr are checked for when someone starts using Emby and every so often while it is in use; a full reconciliation runs once a day (Scheduled Tasks &gt; WeTrakr).</p>
+
+                <h3 class="sectionTitle">Ignore libraries</h3>
+                <p class="wt-muted">Nothing in a checked library is scrobbled or synced, in either direction.</p>
+                <div id="wtLibraries"></div>
                 <div class="wt-actions">
                     <button is="emby-button" type="button" class="raised button-submit" id="wtSave"><span>Save</span></button>
                     <button is="emby-button" type="button" class="raised" id="wtSyncNow"><span>Sync now</span></button>
