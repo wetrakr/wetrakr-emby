@@ -2,15 +2,16 @@
 
 Official [WeTrakr](https://wetrakr.com) plugin for Emby Server.
 
-- **Live scrobbling**: what you play shows up in WeTrakr's Now Playing, and finished movies and episodes are marked as watched. Marking items watched or unwatched, rating them and adding favorites in Emby is sent too.
+- **Live scrobbling**: what you play shows up in WeTrakr's Now Playing, and finished movies and episodes are marked as watched. Marking items watched, rating them and adding favorites in Emby is sent too. Unmarking stays in Emby unless you turn on "Also send items you mark as unwatched" (handy to rewatch a show in Emby without touching WeTrakr).
 - **Two-way library sync**:
   - **Emby → WeTrakr**: your watched history (with dates), resume points, favorites and ratings. The first sync imports everything; after that only what changed.
   - **WeTrakr → Emby**: what you watched elsewhere (Kodi, Plex, Stremio, the WeTrakr web…) is marked as played in Emby, titles in progress appear in Continue Watching, and favorites and ratings come back too.
   - **Planning list** as a "WeTrakr Watchlist" playlist with the titles you have in your library (for shows, the next unwatched episode).
 - **One link per Emby user**: each person on a shared server syncs to their own WeTrakr account.
+- **Each direction has its own switch**, and whole libraries (Kids, Anime...) can be left out of scrobbling and sync.
 - No Emby Premiere needed.
 
-A sync never removes a watch on its own: only an explicit "unwatched" on either side does, and a watch made in Emby after the last sync always wins.
+A sync never removes a watch on its own: only an explicit "unwatched" on either side does, and a watch made in Emby after the last sync always wins. An item you unmark in Emby is not marked again by the sync unless WeTrakr records a later watch of it.
 
 ## Requirements
 
@@ -38,6 +39,16 @@ If the plugin page shows an error like `Cannot read properties of null` the firs
 3. Go to [wetrakr.com/activate](https://wetrakr.com/activate?platform=emby) and enter the code.
 
 The first sync starts right away. What goes each way is set in WeTrakr: **Settings → Emby**.
+
+## Options
+
+In the plugin page:
+
+- **Scrobbling**: playback, items you mark as watched (and, if you turn it on, unwatched), ratings and favorites.
+- **Library sync**, one switch per direction:
+  - **Emby → WeTrakr** sends your whole library once, on the first sync. After that only what changes in Emby is sent, as it happens. There is no periodic re-export.
+  - **WeTrakr → Emby** brings what changes in WeTrakr (watched elsewhere, resume points, ratings, favorites) and keeps the Planning playlist.
+- **Ignore libraries**: nothing in a checked library is scrobbled or synced, in either direction.
 
 ## When it syncs
 
