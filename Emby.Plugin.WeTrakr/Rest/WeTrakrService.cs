@@ -55,7 +55,6 @@ namespace Emby.Plugin.WeTrakr.Rest
     {
         public bool ScrobblePlaying { get; set; }
         public bool ScrobbleWatched { get; set; }
-        public bool ScrobbleUnwatched { get; set; }
         public bool ScrobbleRatings { get; set; }
         public bool SyncToWeTrakr { get; set; }
         public bool SyncFromWeTrakr { get; set; }
@@ -112,7 +111,6 @@ namespace Emby.Plugin.WeTrakr.Rest
                 Libraries = libraries,
                 cfg.ScrobblePlaying,
                 cfg.ScrobbleWatched,
-                cfg.ScrobbleUnwatched,
                 cfg.ScrobbleRatings,
                 SyncToWeTrakr = cfg.UploadEnabled,
                 SyncFromWeTrakr = cfg.PullEnabled,
@@ -152,7 +150,6 @@ namespace Emby.Plugin.WeTrakr.Rest
             var cfg = Config;
             cfg.ScrobblePlaying = request.ScrobblePlaying;
             cfg.ScrobbleWatched = request.ScrobbleWatched;
-            cfg.ScrobbleUnwatched = request.ScrobbleUnwatched;
             cfg.ScrobbleRatings = request.ScrobbleRatings;
             cfg.SyncToWeTrakr = request.SyncToWeTrakr;
             cfg.SyncFromWeTrakr = request.SyncFromWeTrakr;

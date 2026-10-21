@@ -2,7 +2,7 @@
 
 Official [WeTrakr](https://wetrakr.com) plugin for Emby Server.
 
-- **Live scrobbling**: what you play shows up in WeTrakr's Now Playing, and finished movies and episodes are marked as watched. Marking items watched, rating them and adding favorites in Emby is sent too. Unmarking stays in Emby unless you turn on "Also send items you mark as unwatched" (handy to rewatch a show in Emby without touching WeTrakr).
+- **Live scrobbling**: what you play shows up in WeTrakr's Now Playing, and finished movies and episodes are marked as watched. Marking items watched, rating them and adding favorites in Emby is sent too. Unmarking undoes a play from the last 24 hours (a mark made by mistake); older plays stay in your WeTrakr history unless you turn on "Always undo the play" in WeTrakr › Settings › Emby.
 - **Two-way library sync**:
   - **Emby → WeTrakr**: your watched history (with dates), resume points, favorites and ratings. The first sync imports everything; after that only what changed.
   - **WeTrakr → Emby**: what you watched elsewhere (Kodi, Plex, Stremio, the WeTrakr web…) is marked as played in Emby, titles in progress appear in Continue Watching, and favorites and ratings come back too.
@@ -48,7 +48,7 @@ The administrator can also link any user from **Dashboard → Plugins → WeTrak
 
 In the plugin page:
 
-- **Scrobbling**: playback, items you mark as watched (and, if you turn it on, unwatched), ratings and favorites.
+- **Scrobbling**: playback, items you mark as watched or unwatched, ratings and favorites. What an "unwatched" does to your WeTrakr history is a per-user choice in WeTrakr (undo plays from the last 24 hours, or always).
 - **Library sync**, one switch per direction:
   - **Emby → WeTrakr** sends your whole library once, on the first sync. After that only what changes in Emby is sent, as it happens. There is no periodic re-export.
   - **WeTrakr → Emby** brings what changes in WeTrakr (watched elsewhere, resume points, ratings, favorites) and keeps the Planning playlist.

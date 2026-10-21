@@ -21,10 +21,10 @@ namespace Emby.Plugin.WeTrakr.Configuration
         public bool ScrobbleWatched { get; set; } = true;
 
         /// <summary>
-        /// Con ScrobbleWatched, manda tambien el "marcar como no visto". Apagado
-        /// por defecto: en Emby se desmarca para volver a ver una serie (asi
-        /// Continue Watching ofrece el siguiente episodio) y eso no debe quitar el
-        /// visto en WeTrakr. El sync nunca manda "no visto" en ningun caso.
+        /// Sin uso desde la 0.4.1 (lo introdujo la 0.3.0): el "no visto" se manda
+        /// siempre y es WeTrakr quien decide, por usuario, si deshace el play
+        /// (ultimas 24 h, o siempre con "Always undo the play" en WeTrakr). Se
+        /// conserva para que las configuraciones guardadas sigan cargando.
         /// </summary>
         public bool ScrobbleUnwatched { get; set; } = false;
 

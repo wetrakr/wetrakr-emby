@@ -155,15 +155,10 @@ namespace Emby.Plugin.WeTrakr.Scrobbling
                         var itemId = e.Item.InternalId;
                         var played = e.UserData != null && e.UserData.Played;
                         if (!_played.ShouldSend(userId, itemId, played)) return;
-                        if (!played && !cfg.ScrobbleUnwatched)
-                        {
-                            // El "no visto" se queda en Emby. Se registra igual para
-                            // que el siguiente "visto" del mismo item si se envie, y
-                            // la playlist se refresca (cambia el siguiente sin ver).
-                            _played.Commit(userId, itemId, false);
-                            SyncSignals.MarkDirty(userId);
-                            return;
-                        }
+                        // El "no visto" se manda siempre: WeTrakr decide que hacer con
+                        // el historial (deshace el play si es de las ultimas 24 h, o
+                        // siempre si el usuario activo esa opcion en WeTrakr). Nunca
+                        // borra plays viejos por su cuenta.
                         var marked = PayloadBuilder.Build("ItemMarkedPlayed", e.User, e.Item, e.UserData?.PlaybackPositionTicks ?? 0, false, played);
                         marked.IsFavorite = e.UserData?.IsFavorite;
                         marked.UserRating = e.UserData?.Rating;

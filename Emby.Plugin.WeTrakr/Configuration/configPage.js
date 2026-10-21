@@ -88,7 +88,6 @@ define(['loading', 'emby-input', 'emby-button', 'emby-checkbox'], function (load
             return api('GET', 'WeTrakr/Status').then(function (s) {
                 view.querySelector('#wtScrobblePlaying').checked = !!s.ScrobblePlaying;
                 view.querySelector('#wtScrobbleWatched').checked = !!s.ScrobbleWatched;
-                view.querySelector('#wtScrobbleUnwatched').checked = !!s.ScrobbleUnwatched;
                 view.querySelector('#wtScrobbleRatings').checked = !!s.ScrobbleRatings;
                 view.querySelector('#wtSyncToWeTrakr').checked = !!s.SyncToWeTrakr;
                 view.querySelector('#wtSyncFromWeTrakr').checked = !!s.SyncFromWeTrakr;
@@ -161,7 +160,6 @@ define(['loading', 'emby-input', 'emby-button', 'emby-checkbox'], function (load
             api('POST', 'WeTrakr/Settings', {
                 ScrobblePlaying: view.querySelector('#wtScrobblePlaying').checked,
                 ScrobbleWatched: view.querySelector('#wtScrobbleWatched').checked,
-                ScrobbleUnwatched: view.querySelector('#wtScrobbleUnwatched').checked,
                 ScrobbleRatings: view.querySelector('#wtScrobbleRatings').checked,
                 SyncToWeTrakr: view.querySelector('#wtSyncToWeTrakr').checked,
                 SyncFromWeTrakr: view.querySelector('#wtSyncFromWeTrakr').checked,
