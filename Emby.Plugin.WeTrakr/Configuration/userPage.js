@@ -34,7 +34,7 @@ define(['loading', 'emby-button'], function (loading) {
             if (u.Linked && !u.Invalid) {
                 lines.push('<div class="wt-ok">Linked to WeTrakr as <b>' + esc(u.WeTrakrUsername || '?') + '</b></div>');
             } else if (u.Invalid) {
-                lines.push('<div class="wt-warn">WeTrakr no longer accepts this link (it was linked again elsewhere or disconnected). Link it again.</div>');
+                lines.push('<div class="wt-warn">WeTrakr no longer accepts this link (this server was unlinked in WeTrakr Settings &gt; Emby). Link it again.</div>');
             } else {
                 lines.push('<div class="wt-muted">Not linked</div>');
             }

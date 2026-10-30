@@ -42,6 +42,8 @@ Any user, from their own account:
 
 The first sync starts right away. What goes each way is set in WeTrakr: **Settings → Emby**.
 
+One WeTrakr account can be linked from several Emby servers (stable and beta, home and away...): link it on each server the same way. **Settings → Emby** in WeTrakr lists every linked server and lets you unlink one without touching the others.
+
 The administrator can also link any user from **Dashboard → Plugins → WeTrakr**, which is where the server-wide options live (scrobbling, sync directions, ignored libraries).
 
 ## Options
