@@ -672,7 +672,9 @@ namespace Emby.Plugin.WeTrakr.Sync
                     wanted.Add(item.InternalId);
                     if (playing.Contains(item.InternalId)) continue;
                     var data = _userData.GetUserData(user, item);
-                    if (data == null || data.Played) continue;
+                    // Tambien con el titulo ya visto: es un rewatch a medias, y en
+                    // Emby un item visto con posicion sale en "Continuar viendo".
+                    if (data == null) continue;
                     var st = state.Get(item.InternalId);
 
                     long ticks;
@@ -703,7 +705,7 @@ namespace Emby.Plugin.WeTrakr.Sync
                 if (item == null || playing.Contains(kv.Key)) continue;
                 var data = _userData.GetUserData(user, item);
                 if (data == null) continue;
-                if (data.PlaybackPositionTicks == kv.Value.Position && !data.Played)
+                if (data.PlaybackPositionTicks == kv.Value.Position)
                 {
                     data.PlaybackPositionTicks = 0;
                     _userData.SaveUserData(user, item, data, UserDataSaveReason.Import, CancellationToken.None);
